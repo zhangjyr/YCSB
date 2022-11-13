@@ -211,6 +211,11 @@ LICENSE file.
     </dependency>
     <dependency>
       <groupId>site.ycsb</groupId>
+      <artifactId>sion-binding</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>site.ycsb</groupId>
       <artifactId>rest-binding</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -301,4 +306,3 @@ LICENSE file.
   </profiles>
 
 </project>
-
