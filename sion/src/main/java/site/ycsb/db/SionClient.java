@@ -80,7 +80,7 @@ public class SionClient extends DB {
       result.put(key, new ByteArrayByteIterator(object.getBytes()));
     } catch (Exception e) {
       System.err.println("Not possible to get the object "+key);
-      e.printStackTrace();
+      // e.printStackTrace();
       return Status.ERROR;
     }
 
