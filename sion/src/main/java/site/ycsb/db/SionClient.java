@@ -108,7 +108,7 @@ public class SionClient extends DB {
   @Override
   public Status insert(String table, String key,
       Map<String, ByteIterator> values) {
-    return writeToStorage(key, values);
+    return writeToStorage(key, values, 3);
   }
 
   /**
@@ -127,7 +127,7 @@ public class SionClient extends DB {
   @Override
   public Status update(String table, String key,
       Map<String, ByteIterator> values) {
-    return writeToStorage(key, values);
+    return writeToStorage(key, values, 1);
   }
 
   @Override
@@ -141,7 +141,7 @@ public class SionClient extends DB {
     return Status.NOT_IMPLEMENTED;
   }
 
-  protected Status writeToStorage(String key, Map<String, ByteIterator> values) {
+  protected Status writeToStorage(String key, Map<String, ByteIterator> values, int retries) {
     int totalSize = 0;
     int fieldCount = values.size(); //number of fields to concatenate
     // getting the first field in the values
@@ -158,15 +158,16 @@ public class SionClient extends DB {
       offset += sizeArray;
     }
 
-    try {
-      if (jedis.set(key, new String(destinationArray)).equals("OK")) {
-        return Status.OK;
+    for (int i = 0; i < retries; i++) {
+      try {
+        if (jedis.set(key, new String(destinationArray)).equals("OK")) {
+          return Status.OK;
+        }
+      } catch (Exception e) {
+        // Try again
       }
-      return Status.ERROR;
-    } catch (Exception e) {
-      System.err.println("Not possible to write the object "+key);
-      e.printStackTrace();
-      return Status.ERROR;
     }
+    System.err.println("Not possible to write the object "+key);
+    return Status.ERROR;
   }
 }
