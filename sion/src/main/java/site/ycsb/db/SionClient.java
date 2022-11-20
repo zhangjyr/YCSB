@@ -31,13 +31,16 @@ import java.util.Vector;
 public class SionClient extends DB {
 
   private JedisCommands jedis;
+  private int maxFields;
 
   public static final String HOST_PROPERTY = "sion.host";
   public static final String PORT_PROPERTY = "sion.port";
   public static final String TIMEOUT_PROPERTY = "sion.timeout";
+  public static final String FIELD_COUNT = "fieldcount";
 
   public static final String DEFAULT_HOST = "127.0.0.1";
   public static final int DEFAULT_PORT = 6378;
+  public static final int DEFAULT_FIELD_COUNT = 10;
 
   public void init() throws DBException {
     Properties props = getProperties();
@@ -62,6 +65,13 @@ public class SionClient extends DB {
       jedis = new Jedis(host, port);
     }
     ((Jedis) jedis).connect();
+
+    String fcntString = props.getProperty(FIELD_COUNT);
+    if (fcntString != null) {
+      maxFields = Integer.parseInt(fcntString);
+    } else {
+      maxFields = DEFAULT_FIELD_COUNT;
+    }
   }
 
   public void cleanup() throws DBException {
@@ -144,6 +154,10 @@ public class SionClient extends DB {
   protected Status writeToStorage(String key, Map<String, ByteIterator> values, int retries) {
     int totalSize = 0;
     int fieldCount = values.size(); //number of fields to concatenate
+    // During update, compensate the missing fields.
+    if (fieldCount < maxFields) {
+      fieldCount = maxFields;
+    }
     // getting the first field in the values
     Object keyToSearch = values.keySet().toArray()[0];
     // getting the content of just one field
