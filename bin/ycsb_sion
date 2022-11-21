@@ -6,6 +6,7 @@ OP=$1
 WORKLOAD=$2
 OBJSIZE=$3
 CONCURRENCY=$4
+EXTRA=$5
 
 CONF_BASE="data/workload${WORKLOAD}_${OBJSIZE}"
 OUTPUT_BASE="${CONF_BASE}_c${CONCURRENCY}"
@@ -15,10 +16,10 @@ if [ -z "$CONCURRENCY" ]; then
 fi
 
 if [ "$OP" == "load" ]; then
-  CMD="$PWD/ycsb load sion -s -P ${CONF_BASE}.conf -threads ${CONCURRENCY}"
+  CMD="$PWD/ycsb load sion -s -P ${CONF_BASE}.conf -threads ${CONCURRENCY} ${EXTRA}"
 else
-  CMD="$PWD/ycsb run sion -s -P ${CONF_BASE}.conf -p 'measurement.raw.output_file=${OUTPUT_BASE}.csv' -threads ${CONCURRENCY} > ${OUTPUT_BASE}_summary.txt"
+  CMD="$PWD/ycsb run sion -s -P ${CONF_BASE}.conf -p 'measurement.raw.output_file=${OUTPUT_BASE}.csv' -threads ${CONCURRENCY} ${EXTRA} > ${OUTPUT_BASE}_summary.txt"
 fi
 
 echo $CMD
-`$CMD`
+/bin/bash -c "$CMD"
