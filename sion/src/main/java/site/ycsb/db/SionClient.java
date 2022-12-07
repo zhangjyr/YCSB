@@ -11,13 +11,16 @@ import site.ycsb.ByteIterator;
 import site.ycsb.DB;
 import site.ycsb.DBException;
 import site.ycsb.Status;
+import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisCluster;
 import redis.clients.jedis.JedisCommands;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
 import java.util.Vector;
@@ -32,11 +35,14 @@ public class SionClient extends DB {
 
   private JedisCommands jedis;
   private int maxFields;
+  private boolean reset;
 
   public static final String HOST_PROPERTY = "sion.host";
   public static final String PORT_PROPERTY = "sion.port";
   public static final String TIMEOUT_PROPERTY = "sion.timeout";
   public static final String FIELD_COUNT = "fieldcount";
+
+  public static final String CLUSTER_PROPERTY = "redis.cluster";
 
   public static final String DEFAULT_HOST = "127.0.0.1";
   public static final int DEFAULT_PORT = 6378;
@@ -57,14 +63,29 @@ public class SionClient extends DB {
     if (host == null) {
       host = DEFAULT_HOST;
     }
+    String[] hosts = host.split(",");
 
-    String redisTimeout = props.getProperty(TIMEOUT_PROPERTY);
-    if (redisTimeout != null){
-      jedis = new Jedis(host, port, Integer.parseInt(redisTimeout));
-    } else {
-      jedis = new Jedis(host, port);
+    boolean clusterEnabled = Boolean.parseBoolean(props.getProperty(CLUSTER_PROPERTY));
+    // Automatically enables cluster if specified hosts.
+    if (hosts.length > 1) {
+      clusterEnabled = true;
     }
-    ((Jedis) jedis).connect();
+
+    if (clusterEnabled) {
+      Set<HostAndPort> jedisClusterNodes = new HashSet<>();
+      for (int i = 0; i < hosts.length; i++) {
+        jedisClusterNodes.add(new HostAndPort(hosts[i], port));
+      }
+      jedis = new JedisCluster(jedisClusterNodes);
+    } else {
+      String redisTimeout = props.getProperty(TIMEOUT_PROPERTY);
+      if (redisTimeout != null){
+        jedis = new Jedis(host, port, Integer.parseInt(redisTimeout));
+      } else {
+        jedis = new Jedis(host, port);
+      }
+      ((Jedis) jedis).connect();
+    }
 
     String fcntString = props.getProperty(FIELD_COUNT);
     if (fcntString != null) {
@@ -72,6 +93,7 @@ public class SionClient extends DB {
     } else {
       maxFields = DEFAULT_FIELD_COUNT;
     }
+    reset = false;
   }
 
   public void cleanup() throws DBException {
@@ -86,14 +108,15 @@ public class SionClient extends DB {
   public Status read(String table, String key, Set<String> fields,
       Map<String, ByteIterator> result) {
     try {
+      validate();
       String object = jedis.get(key);
       result.put(key, new ByteArrayByteIterator(object.getBytes()));
     } catch (Exception e) {
-      System.err.println("Not possible to get the object "+key);
+      reset();
+      System.err.println("Not possible to get the object "+key+ ": "+e.getMessage());
       // e.printStackTrace();
       return Status.ERROR;
     }
-
     return Status.OK;
   }
 
@@ -137,7 +160,8 @@ public class SionClient extends DB {
   @Override
   public Status update(String table, String key,
       Map<String, ByteIterator> values) {
-    return writeToStorage(key, values, 1);
+    Status status = writeToStorage(key, values, 1);
+    return status;
   }
 
   @Override
@@ -149,6 +173,21 @@ public class SionClient extends DB {
   public Status scan(String bucket, String startkey, int recordcount,
         Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
     return Status.NOT_IMPLEMENTED;
+  }
+
+  protected void reset() {
+    try {
+      reset = true;
+      cleanup();
+    } catch (Exception e) {
+      System.err.println("Error on reset connection: "+e.getMessage());
+    }
+  }
+
+  protected void validate() throws DBException {
+    if (reset) {
+      init();
+    }
   }
 
   protected Status writeToStorage(String key, Map<String, ByteIterator> values, int retries) {
@@ -172,16 +211,23 @@ public class SionClient extends DB {
       offset += sizeArray;
     }
 
+    Exception lastErr = null;
     for (int i = 0; i < retries; i++) {
       try {
-        if (jedis.set(key, new String(destinationArray)).equals("OK")) {
+        validate();
+        String ret = jedis.set(key, new String(destinationArray));
+        if (ret.equals("OK")) {
           return Status.OK;
+        } else {
+          throw new Exception("unexpected result");
         }
       } catch (Exception e) {
+        lastErr = e;
+        reset();
         // Try again
       }
     }
-    System.err.println("Not possible to write the object "+key);
+    System.err.println("Not possible to write the object "+key+ ": "+lastErr.getMessage());
     return Status.ERROR;
   }
 }
