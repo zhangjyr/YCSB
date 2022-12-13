@@ -9,17 +9,17 @@ CONCURRENCY=$4
 EXTRA=$5
 HOSTS="127.0.0.1"
 
-CONF_BASE="data/redis${WORKLOAD}_${OBJSIZE}"
-OUTPUT_BASE="${CONF_BASE}_c${CONCURRENCY}"
+CONF_BASE="data/workload${WORKLOAD}_${OBJSIZE}"
+OUTPUT_BASE="data/redis${WORKLOAD}_${OBJSIZE}_c${CONCURRENCY}"
 
 if [ -z "$CONCURRENCY" ]; then
   CONCURRENCY=1
 fi
 
 if [ "$OP" == "load" ]; then
-  CMD="$PWD/ycsb load sion -s -P ${CONF_BASE}.conf -threads ${CONCURRENCY} -p 'sion.host=$HOSTS' -p 'sion.port=6379' ${EXTRA}"
+  CMD="$PWD/ycsb load sion -s -P ${CONF_BASE}.conf -threads ${CONCURRENCY} -p 'sion.host=$HOSTS' -p 'sion.port=6379' -p 'redis.cluster=true' ${EXTRA}"
 else
-  CMD="$PWD/ycsb run sion -s -P ${CONF_BASE}.conf -p 'measurement.raw.output_file=${OUTPUT_BASE}.csv' -threads ${CONCURRENCY} -p 'sion.host=$HOSTS' -p 'sion.port=6379' ${EXTRA} > ${OUTPUT_BASE}_summary.txt"
+  CMD="$PWD/ycsb run sion -s -P ${CONF_BASE}.conf -p 'measurement.raw.output_file=${OUTPUT_BASE}.csv' -threads ${CONCURRENCY} -p 'sion.host=$HOSTS' -p 'sion.port=6379' -p 'redis.cluster=true' ${EXTRA} > ${OUTPUT_BASE}_summary.txt"
 fi
 
 echo $CMD
