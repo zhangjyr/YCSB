@@ -18,6 +18,7 @@ fi
 if [ "$OP" == "load" ]; then
   CMD="$PWD/ycsb load sion -s -P ${CONF_BASE}.conf -threads ${CONCURRENCY} ${EXTRA}"
 else
+  rm "${OUTPUT_BASE}.csv"
   CMD="$PWD/ycsb run sion -s -P ${CONF_BASE}.conf -p 'measurement.raw.output_file=${OUTPUT_BASE}.csv' -threads ${CONCURRENCY} ${EXTRA} > ${OUTPUT_BASE}_summary.txt"
 fi
 
